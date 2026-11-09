@@ -1,0 +1,21 @@
+{
+	"name": "LS_SQLServer_Source",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "RAVIPC",
+			"database": "AdventureWorks2019",
+			"encrypt": "mandatory",
+			"trustServerCertificate": true,
+			"authenticationType": "SQL",
+			"userName": "adf_etl_user",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiI4NjhmM2IzNy00MzIxLTQ0NTEtYWZiNC0zZWU3NmVmZGQxZjkiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "IR-SQLServer-OnPrem",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

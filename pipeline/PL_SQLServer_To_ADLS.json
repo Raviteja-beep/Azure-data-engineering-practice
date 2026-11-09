@@ -1,0 +1,129 @@
+{
+	"name": "PL_SQLServer_To_ADLS",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_SQLServer_To_ADLS",
+				"description": "Copies data from sql server to Azure data lake storage",
+				"type": "Copy",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [
+					{
+						"name": "Source",
+						"value": "@{pipeline().parameters.SchemaName}.@{pipeline().parameters.TableName}"
+					},
+					{
+						"name": "Destination",
+						"value": "raw//@{pipeline().parameters.FileName}"
+					}
+				],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"queryTimeout": "02:00:00",
+						"isolationLevel": "ReadCommitted",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQLServer_Employee",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": "@pipeline().parameters.SchemaName",
+							"TableName": "@pipeline().parameters.TableName"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_Employee_CSV",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": {
+								"value": "@pipeline().parameters.FileName",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Lookup_Metadata",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": "SELECT SchemaName, TableName, FileName\nFROM dbo.ADF_Metadata\nWHERE IsActive = 1;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQLServer_Employee",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": "HumanResources",
+							"TableName": "Department"
+						}
+					},
+					"firstRowOnly": false
+				}
+			}
+		],
+		"parameters": {
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "HumanResources"
+			},
+			"TableName": {
+				"type": "string",
+				"defaultValue": "Employee"
+			},
+			"FileName": {
+				"type": "string",
+				"defaultValue": "Employee.csv"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-11-09T17:26:41Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

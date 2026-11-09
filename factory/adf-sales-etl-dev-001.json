@@ -1,0 +1,15 @@
+{
+	"name": "adf-sales-etl-dev-001",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "88f198aa-c60b-4fda-9add-13f2332374fb",
+		"tenantId": "b313516b-7052-4a9d-b800-dd970ca5884b"
+	}
+}
