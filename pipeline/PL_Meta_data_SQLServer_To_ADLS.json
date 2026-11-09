@@ -145,7 +145,7 @@
 											"source": {
 												"type": "SqlServerSource",
 												"sqlReaderQuery": {
-													"value": "@concat('SELECT MAX(',item().WatermarkColummn,'\n) as NewWatermark FROM\n',item().SchemaName,\n'.',\nitem().TableName\n)",
+													"value": "@concat('SELECT MAX(',item().WatermarkColumn,'\n) as NewWatermark FROM\n',item().SchemaName,\n'.',\nitem().TableName\n)",
 													"type": "Expression"
 												},
 												"queryTimeout": "02:00:00",
