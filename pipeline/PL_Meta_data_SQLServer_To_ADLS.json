@@ -1,5 +1,5 @@
 {
-	"name": "PL_Metadata_SQLServer_To_ADLS",
+	"name": "PL_Meta_data_SQLServer_To_ADLS",
 	"properties": {
 		"description": "Creating a metadata Pipeline\n",
 		"activities": [
