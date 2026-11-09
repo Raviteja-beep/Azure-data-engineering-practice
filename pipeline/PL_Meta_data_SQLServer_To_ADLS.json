@@ -18,7 +18,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "SqlServerSource",
-						"sqlReaderQuery": "SELECT SchemaName, TableName, FileName\nFROM dbo.ADF_Metadata\nWHERE IsActive = 1;",
+						"sqlReaderQuery": "SELECT\n    SchemaName,\n    TableName,\n    FileName,\n    LoadType,\n    WatermarkColumn,\n    LastWatermarkValue\nFROM dbo.ADF_Metadata\nWHERE IsActive = 1;",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -30,7 +30,7 @@
 				}
 			},
 			{
-				"name": "ForEach_Metadat",
+				"name": "ForEach_Metadata",
 				"type": "ForEach",
 				"dependsOn": [
 					{
@@ -48,72 +48,215 @@
 					},
 					"activities": [
 						{
-							"name": "Copy data_Metadata",
-							"type": "Copy",
+							"name": "If Condition",
+							"type": "IfCondition",
 							"dependsOn": [],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
 							"userProperties": [],
 							"typeProperties": {
-								"source": {
-									"type": "SqlServerSource",
-									"queryTimeout": "02:00:00",
-									"partitionOption": "None"
+								"expression": {
+									"value": "@equals(item().Loadtype,'Incremental')",
+									"type": "Expression"
 								},
-								"sink": {
-									"type": "DelimitedTextSink",
-									"storeSettings": {
-										"type": "AzureBlobFSWriteSettings"
-									},
-									"formatSettings": {
-										"type": "DelimitedTextWriteSettings",
-										"quoteAllText": true,
-										"fileExtension": ".txt"
-									}
-								},
-								"enableStaging": false,
-								"translator": {
-									"type": "TabularTranslator",
-									"typeConversion": true,
-									"typeConversionSettings": {
-										"allowDataTruncation": true,
-										"treatBooleanAsNumber": false
-									}
-								}
-							},
-							"inputs": [
-								{
-									"referenceName": "DS_SQLServer_Employee",
-									"type": "DatasetReference",
-									"parameters": {
-										"SchemaName": {
-											"value": "@item().SchemaName",
-											"type": "Expression"
+								"ifFalseActivities": [
+									{
+										"name": "Copy data_FullLoad",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
 										},
-										"TableName": {
-											"value": "@item().TableName",
-											"type": "Expression"
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "DelimitedTextSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "DelimitedTextWriteSettings",
+													"quoteAllText": true,
+													"fileExtension": ".txt"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "DS_SQLServer_Employee",
+												"type": "DatasetReference",
+												"parameters": {
+													"SchemaName": {
+														"value": "@item().SchemaName",
+														"type": "Expression"
+													},
+													"TableName": {
+														"value": "@item().TableName",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "DS_ADLS_Employee_CSV",
+												"type": "DatasetReference",
+												"parameters": {
+													"FileName": {
+														"value": "@item().Filename\n",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "Lookup_NewWatermark",
+										"description": "Retrieving the maximum watermark",
+										"type": "Lookup",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": {
+													"value": "@concat('SELECT MAX(',item().WatermarkColummn,'\n) as NewWatermark FROM\n',item().SchemaName,\n'.',\nitem().TableName\n)",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"isolationLevel": "ReadCommitted",
+												"partitionOption": "None"
+											},
+											"dataset": {
+												"referenceName": "DS_SQLServer_Metadata",
+												"type": "DatasetReference"
+											},
+											"firstRowOnly": true
+										}
+									},
+									{
+										"name": "Copy data1",
+										"type": "Copy",
+										"dependsOn": [
+											{
+												"activity": "Lookup_NewWatermark",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "SqlServerSource",
+												"sqlReaderQuery": "@concat(\r\n'SELECT * FROM ',\r\nitem().SchemaName,\r\n'.',\r\nitem().TableName,\r\n' WHERE ',\r\nitem().WatermarkColumn,\r\n' > ''',\r\nitem().LastWatermarkValue,\r\n''' AND ',\r\nitem().WatermarkColumn,\r\n' <= ''',\r\nactivity('Lookup_NewWatermark').output.firstRow.NewWatermark,\r\n''''\r\n)",
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "DelimitedTextSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "DelimitedTextWriteSettings",
+													"quoteAllText": true,
+													"fileExtension": ".txt"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "DS_SQLServer_Metadata",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "DS_ADLS_Employee_CSV",
+												"type": "DatasetReference",
+												"parameters": {
+													"FileName": "@item().FileName"
+												}
+											}
+										]
+									},
+									{
+										"name": "Script_UpdateWatermark",
+										"type": "Script",
+										"dependsOn": [
+											{
+												"activity": "Copy data1",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"linkedServiceName": {
+											"referenceName": "LS_SQLServer_Source",
+											"type": "LinkedServiceReference"
+										},
+										"typeProperties": {
+											"scripts": [
+												{
+													"type": "Query",
+													"text": "@concat(\n'UPDATE dbo.ADF_Metadata\n SET LastWatermarkValue = ''',\nactivity('Lookup_NewWatermark').output.firstRow.NewWatermark,\n'''\n WHERE SchemaName = ''',\nitem().SchemaName,\n'''\n AND TableName = ''',\nitem().TableName,\n''';'\n)"
+												}
+											],
+											"scriptBlockExecutionTimeout": "02:00:00"
 										}
 									}
-								}
-							],
-							"outputs": [
-								{
-									"referenceName": "DS_ADLS_Employee_CSV",
-									"type": "DatasetReference",
-									"parameters": {
-										"FileName": {
-											"value": "@item().Filename\n",
-											"type": "Expression"
-										}
-									}
-								}
-							]
+								]
+							}
 						}
 					]
 				}
